@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS listings (
     max_guests INTEGER NOT NULL CHECK (max_guests > 0),
     amenities TEXT[] NOT NULL DEFAULT '{}',
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_listings_location_lower
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     status TEXT NOT NULL DEFAULT 'confirmed'
         CHECK (status IN ('confirmed', 'cancelled')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_booking_dates CHECK (check_out > check_in)
 );
 
