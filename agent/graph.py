@@ -27,7 +27,9 @@ def should_continue(state: AgentState) -> str:
 	return "end"
 
 
-def build_graph():
+from langgraph.graph.state import CompiledStateGraph
+
+def build_graph() -> CompiledStateGraph:
 	"""Build and compile the StayEase agent graph."""
 	graph = StateGraph(AgentState)
 

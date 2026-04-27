@@ -16,7 +16,7 @@ _LLM_WITH_TOOLS: Optional[Any] = None
 _LLM_PLAIN: Optional[Any] = None
 
 
-def _get_llm_with_tools():
+def _get_llm_with_tools() -> Optional[Any]:
 	"""Return the tool-bound LLM, initialising it once."""
 	global _LLM_WITH_TOOLS
 	if _LLM_WITH_TOOLS is not None:
@@ -42,7 +42,7 @@ def _get_llm_with_tools():
 		return None
 
 
-def _get_plain_llm():
+def _get_plain_llm() -> Optional[Any]:
 	"""Return a plain LLM (no tools bound) used only to generate friendly text."""
 	global _LLM_PLAIN
 	if _LLM_PLAIN is not None:
@@ -248,9 +248,12 @@ def call_model_node(state: AgentState) -> Dict[str, Any]:
 		if any(phrase in lowered for phrase in ["human agent", "talk to a person", "connect you with a human"]):
 			updates["escalate"] = True
 
-		# Update intent metadata from tool calls
+		# Update intent and params metadata from tool calls
 		if hasattr(response, "tool_calls") and response.tool_calls:
-			tool_name = response.tool_calls[0]["name"]
+			tool_call = response.tool_calls[0]
+			tool_name = tool_call["name"]
+			updates["extracted_params"] = tool_call.get("args", {})
+			updates["missing_fields"] = []
 			if "search" in tool_name:
 				updates["intent"] = "search"
 			elif "details" in tool_name:
