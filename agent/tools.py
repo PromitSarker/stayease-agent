@@ -28,7 +28,12 @@ class SearchPropertiesInput(BaseModel):
 def search_available_properties(
 	location: str, check_in: date, check_out: date, num_guests: int
 ) -> str:
-	"""Search for available properties based on location, dates, and guest count."""
+	"""
+	Search for available properties based on location, dates, and guest count.
+	
+	Why it's needed: The AI doesn't know what properties actually exist in the database. 
+	It uses this tool to ask the database to find open rooms that don't have overlapping bookings.
+	"""
 	if check_out <= check_in:
 		return "ERROR: check_out must be after check_in."
 
@@ -86,7 +91,13 @@ class GetListingDetailsInput(BaseModel):
 
 @tool(args_schema=GetListingDetailsInput)
 def get_listing_details(listing_id: int) -> str:
-	"""Fetch full details of a specific listing by its ID."""
+	"""
+	Fetch full details of a specific listing by its ID.
+	
+	Why it's needed: After the user sees search results, they might want more info 
+	(like rules, exact address, or amenities) before they commit to booking. 
+	This tool grabs that specific deep-dive information for exactly one property.
+	"""
 	query = """
 		SELECT
 			id,
@@ -153,7 +164,13 @@ def create_booking(
 	check_out: date,
 	num_guests: int,
 ) -> str:
-	"""Create a booking for a guest at a specific listing."""
+	"""
+	Create a booking for a guest at a specific listing.
+	
+	Why it's needed: Allows the LLM to safely write data into our database to finalize an order. 
+	It first double-checks if the room is still open (in case someone else booked it inside the last minute)
+	and then saves the reservation details and generates a tracking ID.
+	"""
 	if check_out <= check_in:
 		return "ERROR: check_out must be after check_in."
 
@@ -245,7 +262,11 @@ def create_booking(
 
 @tool
 def escalate(reason: str) -> str:
-	"""Use this tool when the user has a complex request, complaint, or wants to talk to a human.
+	"""
+	Use this tool when the user has a complex request, complaint, or wants to talk to a human.
 	It will signal the system to transfer the conversation to a human support agent.
+	
+	Why it's needed: Bots shouldn't handle arguments or refund disputes! This acts like an "emergency exit"
+	button for the LLM to easily hand the interaction over to real customer support.
 	"""
 	return "I am connecting you to a human agent who can assist with this request. They will be with you shortly!"
