@@ -7,7 +7,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 
 from agent.config import GROQ_API_KEY, GROQ_MODEL
 from agent.state import AgentState
-from agent.tools import create_booking, get_listing_details, search_available_properties
+from agent.tools import create_booking, get_listing_details, search_available_properties, escalate
 
 
 # Tool-calling LLM — used by call_model_node to decide which tool to invoke
@@ -34,7 +34,7 @@ def _get_llm_with_tools():
 			max_retries=3,
 			timeout=60.0,
 		)
-		tools = [search_available_properties, get_listing_details, create_booking]
+		tools = [search_available_properties, get_listing_details, create_booking, escalate]
 		_LLM_WITH_TOOLS = base.bind_tools(tools)
 		return _LLM_WITH_TOOLS
 	except Exception as e:
@@ -282,6 +282,7 @@ def execute_tool_node(state: AgentState) -> Dict[str, Any]:
 		"search_available_properties": search_available_properties,
 		"get_listing_details": get_listing_details,
 		"create_booking": create_booking,
+		"escalate": escalate,
 	}
 
 	new_messages: List[ToolMessage] = []
@@ -313,6 +314,9 @@ def execute_tool_node(state: AgentState) -> Dict[str, Any]:
 				)
 
 	updates: Dict[str, Any] = {"messages": new_messages}
+	if any(tc["name"] == "escalate" for tc in last_message.tool_calls):
+		updates["escalate"] = True
+
 	if primary_tool_result is not None:
 		updates["tool_result"] = primary_tool_result
 

@@ -241,3 +241,11 @@ def create_booking(
 		return output
 	except Exception as e:
 		return f"ERROR: Could not create booking: {str(e)}"
+
+
+@tool
+def escalate(reason: str) -> str:
+	"""Use this tool when the user has a complex request, complaint, or wants to talk to a human.
+	It will signal the system to transfer the conversation to a human support agent.
+	"""
+	return "I am connecting you to a human agent who can assist with this request. They will be with you shortly!"
