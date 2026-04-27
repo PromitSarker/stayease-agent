@@ -64,7 +64,7 @@ def search_available_properties(
 		if not rows:
 			return f"NO_RESULTS: Sorry, we currently have no listings in '{location}' for {num_guests} guest(s) on those dates."
 
-		output = f"SUCCESS: Found {len(rows)} properties in {location}:\n"
+		output = f"Found {len(rows)} properties in {location}:\n"
 		for row in rows:
 			output += f"- ID: {row['id']} | {row['name']} | Price: {row['price_per_night']} BDT/night | Max Guests: {row['max_guests']}\n"
 		return output
@@ -113,7 +113,7 @@ def get_listing_details(listing_id: int) -> str:
 		if not row:
 			return f"ERROR: Listing with ID '{listing_id}' not found."
 
-		output = f"SUCCESS: Details for '{row['name']}' (ID: {listing_id}):\n"
+		output = f"Details for '{row['name']}' (ID: {listing_id}):\n"
 		output += f"- Location: {row['location']}\n"
 		output += f"- Address: {row['address']}\n"
 		output += f"- Price: {row['price_per_night']} BDT/night\n"
@@ -233,7 +233,7 @@ def create_booking(
 				conn.rollback()
 				return f"ERROR: Internal database failure: {str(e)}"
 
-		output = f"SUCCESS: Booking confirmed for '{listing['name']}'!\n"
+		output = f"Booking confirmed for '{listing['name']}'!\n"
 		output += f"- Booking Code: {booking['booking_code']}\n"
 		output += f"- Guest: {guest_name}\n"
 		output += f"- Dates: {check_in} to {check_out}\n"
