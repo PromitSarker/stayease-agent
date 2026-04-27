@@ -8,6 +8,7 @@ class AgentState(TypedDict):
 	messages: List[BaseMessage]
 	intent: Optional[str]
 	extracted_params: Optional[Dict[str, Any]]
+	missing_fields: Optional[List[str]]
 	tool_result: Optional[Any]
 	final_response: Optional[str]
 	escalate: bool
