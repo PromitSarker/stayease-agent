@@ -1,9 +1,9 @@
 from datetime import date
 from uuid import uuid4
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from langchain_core.tools import tool
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from psycopg2.extras import RealDictCursor
 
 from agent.db import get_connection
@@ -13,16 +13,24 @@ class SearchPropertiesInput(BaseModel):
 	location: str
 	check_in: date
 	check_out: date
-	num_guests: int
+	num_guests: Union[int, str]
+
+	@field_validator("num_guests", mode="before")
+	@classmethod
+	def coerce_num_guests(cls, v: Any) -> int:
+		try:
+			return int(v)
+		except (ValueError, TypeError) as exc:
+			raise ValueError(f"num_guests must be an integer, got {v!r}") from exc
 
 
 @tool(args_schema=SearchPropertiesInput)
 def search_available_properties(
 	location: str, check_in: date, check_out: date, num_guests: int
-) -> List[Dict[str, Any]]:
+) -> str:
 	"""Search for available properties based on location, dates, and guest count."""
 	if check_out <= check_in:
-		return [{"error": "check_out must be after check_in."}]
+		return "ERROR: check_out must be after check_in."
 
 	query = """
 		SELECT
@@ -53,30 +61,31 @@ def search_available_properties(
 				cur.execute(query, (location, num_guests, check_out, check_in))
 				rows = cur.fetchall()
 
-		return [
-			{
-				"id": row["id"],
-				"name": row["name"],
-				"location": row["location"],
-				"price_per_night": row["price_per_night"],
-				"max_guests": row["max_guests"],
-				"amenities": row.get("amenities") or [],
-				"requested_check_in": str(check_in),
-				"requested_check_out": str(check_out),
-				"requested_guests": num_guests,
-			}
-			for row in rows
-		]
-	except Exception:
-		return [{"error": "Could not search properties right now."}]
+		if not rows:
+			return f"NO_RESULTS: Sorry, we currently have no listings in '{location}' for {num_guests} guest(s) on those dates."
+
+		output = f"SUCCESS: Found {len(rows)} properties in {location}:\n"
+		for row in rows:
+			output += f"- ID: {row['id']} | {row['name']} | Price: {row['price_per_night']} BDT/night | Max Guests: {row['max_guests']}\n"
+		return output
+	except Exception as e:
+		return f"ERROR: Could not search properties right now: {str(e)}"
 
 
 class GetListingDetailsInput(BaseModel):
-	listing_id: int
+	listing_id: Union[int, str]
+
+	@field_validator("listing_id", mode="before")
+	@classmethod
+	def coerce_listing_id(cls, v: Any) -> int:
+		try:
+			return int(v)
+		except (ValueError, TypeError) as exc:
+			raise ValueError(f"listing_id must be an integer, got {v!r}") from exc
 
 
 @tool(args_schema=GetListingDetailsInput)
-def get_listing_details(listing_id: int) -> Dict[str, Any]:
+def get_listing_details(listing_id: int) -> str:
 	"""Fetch full details of a specific listing by its ID."""
 	query = """
 		SELECT
@@ -102,32 +111,37 @@ def get_listing_details(listing_id: int) -> Dict[str, Any]:
 				row = cur.fetchone()
 
 		if not row:
-			return {"error": "Listing not found.", "listing_id": listing_id}
+			return f"ERROR: Listing with ID '{listing_id}' not found."
 
-		return {
-			"id": row["id"],
-			"name": row["name"],
-			"description": row["description"],
-			"photos": row.get("photos") or [],
-			"rules": row.get("house_rules") or [],
-			"host_name": row["host_name"],
-			"address": row["address"],
-			"price_per_night": row["price_per_night"],
-			"location": row["location"],
-			"max_guests": row["max_guests"],
-			"amenities": row.get("amenities") or [],
-		}
-	except Exception:
-		return {"error": "Could not fetch listing details right now."}
+		output = f"SUCCESS: Details for '{row['name']}' (ID: {listing_id}):\n"
+		output += f"- Location: {row['location']}\n"
+		output += f"- Address: {row['address']}\n"
+		output += f"- Price: {row['price_per_night']} BDT/night\n"
+		output += f"- Max Guests: {row['max_guests']}\n"
+		output += f"- Host: {row['host_name']}\n"
+		output += f"- Description: {row['description']}\n"
+		if row.get('amenities'):
+			output += f"- Amenities: {', '.join(row['amenities'])}\n"
+		return output
+	except Exception as e:
+		return f"ERROR: Could not fetch listing details: {str(e)}"
 
 
 class CreateBookingInput(BaseModel):
-	listing_id: int
+	listing_id: Union[int, str]
 	guest_name: str
 	guest_phone: str
 	check_in: date
 	check_out: date
-	num_guests: int
+	num_guests: Union[int, str]
+
+	@field_validator("listing_id", "num_guests", mode="before")
+	@classmethod
+	def coerce_int_fields(cls, v: Any) -> int:
+		try:
+			return int(v)
+		except (ValueError, TypeError) as exc:
+			raise ValueError(f"Expected an integer, got {v!r}") from exc
 
 
 @tool(args_schema=CreateBookingInput)
@@ -138,16 +152,16 @@ def create_booking(
 	check_in: date,
 	check_out: date,
 	num_guests: int,
-) -> Dict[str, Any]:
+) -> str:
 	"""Create a booking for a guest at a specific listing."""
 	if check_out <= check_in:
-		return {"error": "check_out must be after check_in."}
+		return "ERROR: check_out must be after check_in."
 
 	if num_guests <= 0:
-		return {"error": "num_guests must be greater than zero."}
+		return "ERROR: num_guests must be greater than zero."
 
 	listing_query = """
-		SELECT id, price_per_night, max_guests
+		SELECT name, price_per_night, max_guests
 		FROM listings
 		WHERE id = %s AND is_active = TRUE
 		FOR UPDATE
@@ -185,22 +199,16 @@ def create_booking(
 					listing = cur.fetchone()
 					if not listing:
 						conn.rollback()
-						return {"error": "Listing not found.", "listing_id": listing_id}
+						return f"ERROR: Listing with ID '{listing_id}' not found."
 
 					if num_guests > listing["max_guests"]:
 						conn.rollback()
-						return {
-							"error": "Guest count exceeds listing capacity.",
-							"max_guests": listing["max_guests"],
-						}
+						return f"ERROR: Guest count ({num_guests}) exceeds listing capacity ({listing['max_guests']})."
 
 					cur.execute(overlap_query, (listing_id, check_out, check_in))
 					if cur.fetchone():
 						conn.rollback()
-						return {
-							"error": "Selected dates are no longer available for this listing.",
-							"listing_id": listing_id,
-						}
+						return "ERROR: Selected dates are no longer available for this listing."
 
 					nights = (check_out - check_in).days
 					total_price = nights * int(listing["price_per_night"])
@@ -221,21 +229,15 @@ def create_booking(
 					)
 					booking = cur.fetchone()
 					conn.commit()
-			except Exception:
+			except Exception as e:
 				conn.rollback()
-				raise
+				return f"ERROR: Internal database failure: {str(e)}"
 
-		return {
-			"booking_id": booking["booking_code"],
-			"db_booking_row_id": booking["id"],
-			"listing_id": listing_id,
-			"guest_name": guest_name,
-			"guest_phone": guest_phone,
-			"check_in": str(check_in),
-			"check_out": str(check_out),
-			"num_guests": num_guests,
-			"status": booking["status"],
-			"total_price_bdt": booking["total_price_bdt"],
-		}
-	except Exception:
-		return {"error": "Could not create booking right now."}
+		output = f"SUCCESS: Booking confirmed for '{listing['name']}'!\n"
+		output += f"- Booking Code: {booking['booking_code']}\n"
+		output += f"- Guest: {guest_name}\n"
+		output += f"- Dates: {check_in} to {check_out}\n"
+		output += f"- Total Price: {booking['total_price_bdt']} BDT\n"
+		return output
+	except Exception as e:
+		return f"ERROR: Could not create booking: {str(e)}"
