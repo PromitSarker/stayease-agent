@@ -1,0 +1,1 @@
+"""StayEase FastAPI package."""
