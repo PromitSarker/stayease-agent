@@ -119,7 +119,7 @@ Graph uses 4 nodes.
 
 ## 1.6 Database Schema Design
 
-1. listings
+### 1. listings
 
 - id SERIAL PRIMARY KEY
 - name TEXT NOT NULL
@@ -136,7 +136,7 @@ Graph uses 4 nodes.
 - created_at TIMESTAMPTZ NOT NULL
 - updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 
-2. bookings
+### 2. bookings
 
 - id BIGSERIAL PRIMARY KEY
 - booking_code TEXT UNIQUE NOT NULL
@@ -151,7 +151,7 @@ Graph uses 4 nodes.
 - created_at TIMESTAMPTZ NOT NULL
 - updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 
-3. conversations
+### 3. conversations
 
 - id BIGSERIAL PRIMARY KEY
 - conversation_id TEXT NOT NULL
