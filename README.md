@@ -5,13 +5,31 @@ This system is a message-only chat assistant for StayEase, a short-term rental p
 ## 1.1 System Overview
 
 ```mermaid
-flowchart LR
-    G[Guest Client<br/>message only] <--> A[FastAPI Backend]
-    A <--> B[LangGraph Agent]
-    B <--> C[Groq Cloud LLM]
-    B <--> D[Tool Layer]
-    D <--> E[(PostgreSQL)]
-    A <--> E
+flowchart TD
+    %% External Connections
+    G[Guest Client<br/>message only] <-->|HTTP POST / GET| A[FastAPI Backend]
+    A <-->|Reads/Saves History| E[(PostgreSQL)]
+
+    subgraph LangGraph Workflow
+        direction TD
+        Start((Start)) --> N1[call_model_node]
+        N1 <-->|Tool-bound prompt| LLM[Groq Cloud LLM]
+
+        N1 --> Cond{should_continue?}
+
+        Cond -->|execute_tool| N2[execute_tool_node]
+        Cond -->|escalate| N4[escalate_to_human_node]
+        Cond -->|end| End((END))
+
+        N2 <-->|SQL Queries / Writes| E
+        N2 --> N3[format_response_node]
+        N3 <-->|Plain prompt| LLM
+        N3 --> End
+
+        N4 --> End
+    end
+
+    A <-->|Invokes Agent / Returns State| Start
 ```
 
 ## 1.2 Conversation Flow Example
